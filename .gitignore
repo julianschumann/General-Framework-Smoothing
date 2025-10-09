@@ -66,6 +66,7 @@ Framework/Data_sets/Waymo/data/*/uncomp*
 Framework/Data_sets/Lyft/data/.unified_data_cache/
 Framework/experiments
 Framework/Models/*GP*
+Framework/Results/
 Framework/Data_sets/*multiModal*
 Processing/
 processing.py
@@ -75,3 +76,4 @@ processing.py
 
 # pyenv
 .python-version
+*.pt
