@@ -643,14 +643,7 @@ class trajectron_salzmann_smooth(model_template):
     def train_method(self, epochs = 100):
         # setup train_loss
         self.train_loss = np.zeros((1, epochs))
-        
-        # Check if normal trained model is available
-        current_file_name_start = self.get_name()['file'][:10]
-        model_file_normal = self.model_file.replace(current_file_name_start, 't_pp_old')
-        if os.path.exists(model_file_normal):
-            self.weights_saved = list(np.load(model_file_normal, allow_pickle = True)[:-1])
-            return
-        # If not, train a new model
+
         T_all = self.provide_all_included_agent_types()
         Pred_types = np.empty(T_all.shape, dtype = object)
         Pred_types[T_all == 'P'] = 'PEDESTRIAN'
@@ -686,8 +679,11 @@ class trajectron_salzmann_smooth(model_template):
             while not epoch_done:
                 batch_number += 1
                 print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch_number))
-                X, Y, T, _, img, img_m_per_px, _, _, num_steps, _, _, epoch_done = self.provide_batch_data('train', batch_size)
-                
+                X, Y, T, _, img, img_m_per_px, _, Pred_agents, num_steps, _, Agent_id, epoch_done = self.provide_batch_data('train', batch_size)
+                # Apply smoothing (to pred agents that are not the pov agent)
+                POV_Agent = (np.array(self.data_set.Agents) == 'ego')[Agent_id]
+                Smoothed_agents = Pred_agents & ~POV_Agent
+                X = self.random_smoothing(X, Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
                 
                 # Move img to device
@@ -847,11 +843,11 @@ class trajectron_salzmann_smooth(model_template):
     def get_name(self = None):
         self.define_default_kwargs()
         smooth_dict = {
-            'all': 'ea_',
-            'positions': 'ep_',
-            'position_matched': 'epm',
-            'control': 'ec_',
-            'control_matched': 'ecm'
+            'all': 'ta_',
+            'positions': 'tp_',
+            'position_matched': 'tpm',
+            'control': 'tc_',
+            'control_matched': 'tcm'
         }
         smooth_sigma = str(int(self.model_kwargs['smoothing_sigma'] * 50))[-2:]
         smooth_method = smooth_dict[self.model_kwargs['smoothing_method']]

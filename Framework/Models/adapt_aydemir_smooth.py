@@ -52,11 +52,11 @@ class adapt_aydemir_smooth(model_template):
         self.define_default_kwargs()
 
         smooth_dict = {
-            'all': 'ea_',
-            'positions': 'ep_',
-            'position_matched': 'epm',
-            'control': 'ec_',
-            'control_matched': 'ecm'
+            'all': 'ta_',
+            'positions': 'tp_',
+            'position_matched': 'tpm',
+            'control': 'tc_',
+            'control_matched': 'tcm'
         }
         smooth_sigma = str(int(self.model_kwargs['smoothing_sigma'] * 50))[-2:]
         smooth_method = smooth_dict[self.model_kwargs['smoothing_method']]
@@ -534,31 +534,7 @@ class adapt_aydemir_smooth(model_template):
         iter_num = int(self.data_set.Pred_agents_pred[self.splitter.Train_index].sum() /self.cfg['batch_size'] * 0.9) # int(self.Pred_agents.sum()/self.cfg['batch_size']) #100000
 
         self.weights_saved = []
-        # Check if normal trained model is available
-        current_file_name_start = self.get_name()['file'][:11]
-        model_file_normal = self.model_file.replace(current_file_name_start, 'ADAPT')
-        if os.path.exists(model_file_normal):
 
-            # Load normal model
-
-            self.model = ADAPT(self.cfg)
-
-            if self.cfg['use_checkpoint']:
-                checkpoint_path = model_file_normal[:-4] + os.sep + 'checkpoint.pt'
-                assert os.path.exists(checkpoint_path)
-                checkpoint = torch.load(checkpoint_path)
-                self.model.load_state_dict(checkpoint["state_dict"], strict=False)
-                optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg['learning_rate'])
-                total_cycle = self.cfg['epoch'] * iter_num # TODO add when total num of batches known
-                scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(total_cycle * 0.7), int(total_cycle * 0.9)], gamma=0.15)
-                optimizer.load_state_dict(checkpoint["optimizer"])
-                scheduler.load_state_dict(checkpoint["scheduler"])
-
-            self.model.to(self.device)
-            # Save as the new model
-            save_model(self.cfg, self.cfg['epoch'] - 1, self.model, optimizer, scheduler)
-            return
-        # If not, train a new model
         # dist.init_process_group("nccl", rank=0, world_size=0)
         # Allow fine-tuning of loaded model
         if not hasattr(self, 'model'):
@@ -593,9 +569,13 @@ class adapt_aydemir_smooth(model_template):
                 print('', flush = True)
                 print(epoch_string + ' - Batch {}'.format(batch), flush = True)
 
-                X, Y, _, _, _, _, graph, Pred_agents, _, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data('train', self.cfg['batch_size'], 
-                                                                                        val_split_size = 0.1)
-                
+                X, Y, _, _, _, _, graph, Pred_agents, _, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data(
+                    'train', self.cfg['batch_size'], val_split_size = 0.1)
+                                
+                # Apply smoothing (to pred agents that are not the pov agent)
+                POV_Agent = (np.array(self.data_set.Agents) == 'ego')[Agent_id]
+                Smoothed_agents = Pred_agents & ~POV_Agent
+                X = self.random_smoothing(X, Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
                 batch_data = self.extract_data(X=X, Y=Y, graph=graph, Pred_agents=Pred_agents, Sample_id=Sample_id, Agent_id=Agent_id)
 
                 if len(batch_data) >= 2*self.cfg['batch_size']:
