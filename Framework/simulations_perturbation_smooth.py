@@ -8,9 +8,6 @@ new_experiment = Experiment(Experiment_name)
 
 
 #%% Select modules
-# Select the models to be trained
-Models = ['trajectron_salzmann_old', 'adapt_aydemir']
-
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.1, 'num_timesteps_in': (15,15), 'num_timesteps_out': (20, 20)}]
 
@@ -23,7 +20,7 @@ preturbation = {'attack': 'Adversarial_Control_Action',
                 'data_set_dict': {'scenario': 'CoR_left_turns', 'max_num_agents': None, 't0_type': 'col_set', 'conforming_t0_types': []},
                 'data_param': Data_params[0],
                 'splitter_dict': Splitters[0],
-                'model_dict': Models[0],
+                'model_dict': 'trajectron_salzmann_old',
                 'num_samples_perturb': 20,
                 'max_number_iterations': 100,
                 'alpha': 0.01,
@@ -38,8 +35,8 @@ preturbation = {'attack': 'Adversarial_Control_Action',
                 'log_value_future': 2.5,
                 'GT_data': 'no'}
 # Vary loss functions and distance thresholds
-for scenario in ['CoR_left_turns', 'RounD_round_about']:
-    for model_dict in Models:
+for scenario in ['RounD_round_about']:
+    for model_dict in ['trajectron_salzmann_old', 'adapt_aydemir']:
         for loss_function_1, loss_function_2 in [
             ('ADE_Y_GT_Y_Pred_Max', None),
             ('Collision_Y_pred_tar_Y_GT_ego', None)
@@ -58,9 +55,10 @@ for scenario in ['CoR_left_turns', 'RounD_round_about']:
                 dataset = {'scenario': scenario,  'max_num_agents': None, 't0_type': 'crit', 'conforming_t0_types': [], 'perturbation': perturbation_i}
                 Data_sets.append(dataset)
 
-# Add models using smoothing during evaluation
+# Select the models to be trained
+Models = []
 for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
-    model_name_smooth = model_name + '_smooth_eval'
+    model_name_smooth = model_name + '_smooth'
     for sigma in [0.25, 0.5, 1.0]:
         for smoothing_method in ['positions', 'position_matched', 'all', 'control', 'control_matched']:
             # Adapt only uses positions, so skip some methods
@@ -68,7 +66,7 @@ for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
                 continue
             model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
             Models.append(model_dict)
-            
+
 # Select the metrics to be used
 Metrics = [
     {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}},

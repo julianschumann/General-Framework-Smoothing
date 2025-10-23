@@ -2487,10 +2487,7 @@ class model_template():
             # This mean there is no control state. Ensure that then only positions are given
             assert len(self.input_data_type) == 2, 'No control states are available, so only positions should be given in the input data.'
 
-        # Get corresponding indices
-        control_ids = [self.input_data_type.index(s) for s in control_states]
-        control_sigma = np.stack([Sigma[s] for s in control_states], axis=-1) # (num_samples, num_agents, num_control_states)
-        control_sigma = np.tile(control_sigma[..., np.newaxis, :], (1, 1, num_steps, 1)) # (num_samples, num_agents, num_steps, num_control_states)
+
 
         # Go through the different modes
         X_perturbed = X.copy()
@@ -2501,7 +2498,11 @@ class model_template():
         elif mode in ['positions', 'position_matched']:
             # Perturb positions
             X_perturbed[..., :2] += np.random.normal(0, sigma, X_perturbed[..., :2].shape)
-        elif mode in ['control', 'control_matched']:
+        elif mode in ['control', 'control_matched']:        
+            # Get corresponding indices
+            control_ids = [self.input_data_type.index(s) for s in control_states]
+            control_sigma = np.stack([Sigma[s] for s in control_states], axis=-1) # (num_samples, num_agents, num_control_states)
+            control_sigma = np.tile(control_sigma[..., np.newaxis, :], (1, 1, num_steps, 1)) # (num_samples, num_agents, num_steps, num_control_states)
             # Perturb control states
             X_perturbed[..., control_ids] += np.random.normal(0.0, control_sigma)
         else:

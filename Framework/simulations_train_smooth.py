@@ -1,18 +1,25 @@
-#%%
-import copy
 from experiment import Experiment
 
 # Draw latex figure
-Experiment_name = 'No Perturbations'
+Experiment_name = 'Train_nuscenes_cor_left_turns_trajectron++'
 new_experiment = Experiment(Experiment_name)
 
-
 #%% Select modules
-# Select the models to be trained
-Models = ['trajectron_salzmann_old', 'adapt_aydemir']
+# # Select the datasets
+Data_sets = [     
+    {'scenario': 'RounD_round_about',  'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []},
+]
 
+# Select the params for the datasets to be considered
+Data_params = [{'dt': 0.1, 'num_timesteps_in': (15,15), 'num_timesteps_out': (20, 20)}] 
+
+# Select the spitting methods to be considered
+Splitters = [{'Type': 'no_split', 'repetition': 0}]
+
+# Select the models to be trained
+Models = []
 for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
-    model_name_smooth = model_name + '_smooth_eval'
+    model_name_smooth = model_name + '_smooth'
     for sigma in [0.25, 0.5, 1.0]:
         for smoothing_method in ['positions', 'position_matched', 'all', 'control', 'control_matched']:
             # Adapt only uses positions, so skip some methods
@@ -21,28 +28,8 @@ for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
             model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
             Models.append(model_dict)
 
-# Select the params for the datasets to be considered
-Data_params = [{'dt': 0.1, 'num_timesteps_in': (15,15), 'num_timesteps_out': (20, 20)}]
-
-# Select the datasets
-Data_sets = []
-for scenario in ['CoR_left_turns', 'RounD_round_about']:
-    # Define specific dataset
-    dataset_unperturbed = {'scenario': scenario,  'max_num_agents': None, 't0_type': 'crit', 'conforming_t0_types': []}
-    Data_sets.append(dataset_unperturbed)
-
-# Select the spitting methods to be considered
-Splitters = [{'Type': 'no_split', 'repetition': 0, 'train_pert': False, 'test_pert': False}]
-
 # Select the metrics to be used
-Metrics = [
-    {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'FDE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Collision_rate_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Acceleration_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Curvature_indep', 'kwargs': {'include_pov': False}},
-]
-
+Metrics = ['ADE_indep']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 
@@ -65,13 +52,13 @@ exclude_post_crit = True
 allow_extrapolation = True
 
 # Use all available agents for predictions
-agents_to_predict = 'predefined'
+agents_to_predict = 'V'
 
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = 'no'
 
 # Determine if the model should be evaluated on the training set as well
-evaluate_on_train_set = False
+evaluate_on_train_set = True
 
 # Determine if predictions should be saved
 save_predictions = True
@@ -85,8 +72,11 @@ new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred,
                               agents_to_predict, overwrite_results, 
                               save_predictions, evaluate_on_train_set)
 
-#%% Run experiment
-new_experiment.run()
 
+#%% Run experiment
+new_experiment.run()   
 # Load results
-Results = new_experiment.load_results()
+Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = True,
+                                                           return_train_results = True,
+                                                           return_train_loss = True)
+
