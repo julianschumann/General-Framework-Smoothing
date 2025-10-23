@@ -709,13 +709,15 @@ class trajectron_salzmann_smooth(model_template):
                                             prediction_horizon    = num_steps)
                 
                 # Calculate gradients
-                assert train_loss.isfinite().all(), "The overall loss of the model is nan"
-                train_loss.backward()
+                if train_loss.isfinite().all():
+                    train_loss.backward()
                 
-                if self.trajectron.hyperparams['grad_clip'] is not None:
-                    nn.utils.clip_grad_value_(self.trajectron.model_registrar.parameters(), clip_value_final)
+                    if self.trajectron.hyperparams['grad_clip'] is not None:
+                        nn.utils.clip_grad_value_(self.trajectron.model_registrar.parameters(), clip_value_final)
                 
-                optimizer[node_type].step()
+                    optimizer[node_type].step()
+                else:
+                    print('--- Trajectron train: NaN loss encountered. Skipping weight update this batch.')
                 lr_scheduler[node_type].step()
                 curr_iter += 1
                 
