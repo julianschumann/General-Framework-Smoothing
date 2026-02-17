@@ -77,3 +77,4 @@ processing.py
 # pyenv
 .python-version
 *.pt
+*.npy
