@@ -9,7 +9,7 @@ new_experiment = Experiment(Experiment_name)
 
 #%% Select modules
 # Select the models to be trained
-Models = ['trajectron_salzmann_old', 'adapt_aydemir']
+Models = ['adapt_aydemir']
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.1, 'num_timesteps_in': (15,15), 'num_timesteps_out': (20, 20)}]
@@ -19,7 +19,7 @@ Splitters = [{'Type': 'no_split', 'repetition': 0, 'train_pert': False, 'test_pe
 
 # Select the datasets
 Data_sets = []
-preturbation = {'attack': 'Adversarial_Control_Action',
+perturbation = {'attack': 'Adversarial_Control_Action',
                 'data_set_dict': {'scenario': 'CoR_left_turns', 'max_num_agents': None, 't0_type': 'col_set', 'conforming_t0_types': []},
                 'data_param': Data_params[0],
                 'splitter_dict': Splitters[0],
@@ -38,15 +38,14 @@ preturbation = {'attack': 'Adversarial_Control_Action',
                 'log_value_future': 2.5,
                 'GT_data': 'no'}
 # Vary loss functions and distance thresholds
-for scenario in ['CoR_left_turns', 'RounD_round_about']:
+for scenario in ['RounD_round_about']:
     for model_dict in Models:
         for loss_function_1, loss_function_2 in [
             ('ADE_Y_GT_Y_Pred_Max', None),
-            ('Collision_Y_pred_tar_Y_GT_ego', None)
             ]:
             for distance_threshold in [0.25, 0.5, 1.0]:
                 # Define specific perturbation
-                perturbation_i = copy.deepcopy(preturbation)
+                perturbation_i = copy.deepcopy(perturbation)
                 perturbation_i['splitter_dict']['test_pert'] = False
                 dataset_unperturbed = {'scenario': scenario,  'max_num_agents': None, 't0_type': 'crit', 'conforming_t0_types': []}
                 perturbation_i['data_set_dict'] = dataset_unperturbed
@@ -59,25 +58,17 @@ for scenario in ['CoR_left_turns', 'RounD_round_about']:
                 Data_sets.append(dataset)
 
 # Add models using smoothing during evaluation
-for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
-    model_name_smooth = model_name + '_smooth_eval'
-    for sigma in [0.25, 0.5, 1.0]:
-        for smoothing_method in ['positions', 'position_matched', 'all', 'control', 'control_matched']:
-            # Adapt only uses positions, so skip some methods
-            if (model_name == 'adapt_aydemir') and (smoothing_method not in ['positions', 'control_matched']):
-                continue
-            model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
-            Models.append(model_dict)
+for model_name in ['adapt_aydemir']:
+    for addition in ['_smoooth_eval', '_smooth']:
+        model_name_smooth = model_name + addition
+        for smoothing_method in ['positions', 'control_matched']:
+            for sigma in [0.25, 0.5, 1.0]:
+                model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
+                Models.append(model_dict)
             
 # Select the metrics to be used
 Metrics = [
-    {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'FDE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Collision_rate_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Perturbation_max_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Perturbation_mean_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Acceleration_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Curvature_indep', 'kwargs': {'include_pov': False}},
+    {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}}
 ]
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
@@ -126,3 +117,8 @@ new_experiment.run()
 
 # Load results
 Results = new_experiment.load_results()
+
+import numpy as np
+np.set_printoptions(precision=3, suppress=True)
+print(np.squeeze(Results).T)
+np.save('Results_RounD_ADAPT.npy', np.squeeze(Results).T)

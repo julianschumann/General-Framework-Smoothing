@@ -2451,7 +2451,10 @@ class model_template():
             P_v = np.sqrt(X[...,i_vx]**2 + X[...,i_vy]**2)
         else:
             P_v = np.zeros((num_samples, num_agents, num_steps)) # Assume 10 m/s if no velocity is given
-        mean_v = np.maximum(1.0, np.nanmean(np.abs(P_v), axis = -1)) # (num_samples, num_agents)
+        count = np.sum(~np.isnan(P_v), axis=-1)
+        mean_v = np.nansum(np.abs(P_v), axis = -1) / np.maximum(count, 1) # (num_samples, num_agents)
+        mean_v[count == 0] = np.nan
+        mean_v = np.maximum(mean_v, 1.0) # Avoid division by zero
         ones_value = np.ones((num_samples, num_agents), np.float32)
         
         Sigma = {

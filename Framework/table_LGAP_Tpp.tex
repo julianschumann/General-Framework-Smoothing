@@ -1,0 +1,16 @@
+\begin{tabularx}{\linewidth}{|X|X|X|YYYY|}
+\hline
+ \multicolumn{3}{|c|}{Smoothing approach} & \multicolumn{4}{c|}{$d_{\max}$ [$m$]} \\ 
+ \multicolumn{1}{|c}{Applied} & \multicolumn{1}{c}{Goal} & $\sigma$ [$m$] &  (0.0) & 0.25 & 0.5 & 1.0 \\ 
+\hline 
+\multicolumn{2}{|c|}{No Smoothing} & (0.0) & 0.473 & 0.663 & 0.844 & 2.057  \\ 
+\hline
+\multirow{6}{*}{eval} & \multirow{3}{*}{pos~\eqref{eq:smooth_pos}} & 0.25 & \textbf{0.471} & \textbf{0.637} & 0.833 & \textbf{2.020} \\ 
+ &  & 0.5 & 0.546 & 0.761 & 0.902 & 2.063  \\ 
+ &  & 1.0 & 0.676 & 0.850 & 1.015 & 2.123  \\ 
+\cline{2-7}
+ & \multirow{3}{*}{ctrl~\eqref{eq:smooth_ctrl}} & 0.25 & 0.637 & 0.749 & \textbf{0.762} & 2.563  \\ 
+ &  & 0.5 & 0.862 & 0.888 & 0.961 & 2.410  \\ 
+ &  & 1.0 & 1.237 & 1.232 & 1.323 & 2.331  \\ 
+\hline
+\end{tabularx}

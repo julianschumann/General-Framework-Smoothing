@@ -3,46 +3,36 @@ import copy
 from experiment import Experiment
 
 # Draw latex figure
-Experiment_name = 'No Perturbations'
+Experiment_name = 'Perturbations'
 new_experiment = Experiment(Experiment_name)
 
 
 #%% Select modules
 # Select the models to be trained
-Models = ['trajectron_salzmann_old', 'adapt_aydemir']
-
-for model_name in ['trajectron_salzmann', 'adapt_aydemir']:
-    model_name_smooth = model_name + '_smooth_eval'
-    for sigma in [0.25, 0.5, 1.0]:
-        for smoothing_method in ['positions', 'position_matched', 'all', 'control', 'control_matched']:
-            # Adapt only uses positions, so skip some methods
-            if (model_name == 'adapt_aydemir') and (smoothing_method not in ['positions', 'control_matched']):
-                continue
-            model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
-            Models.append(model_dict)
+Models = ['trajectron_salzmann_old']
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.1, 'num_timesteps_in': (15,15), 'num_timesteps_out': (20, 20)}]
 
-# Select the datasets
-Data_sets = []
-for scenario in ['CoR_left_turns', 'RounD_round_about']:
-    # Define specific dataset
-    dataset_unperturbed = {'scenario': scenario,  'max_num_agents': None, 't0_type': 'crit', 'conforming_t0_types': []}
-    Data_sets.append(dataset_unperturbed)
-
 # Select the spitting methods to be considered
 Splitters = [{'Type': 'no_split', 'repetition': 0, 'train_pert': False, 'test_pert': False}]
 
+# Select the datasets
+Data_sets = [{'scenario': 'RounD_round_about',  'max_num_agents': None, 't0_type': 'crit', 'conforming_t0_types': []}]
+
+# Add models using smoothing during evaluation
+for model_name in ['trajectron_salzmann']:
+    for addition in ['_smoooth_eval', '_smooth']:
+        model_name_smooth = model_name + addition
+        for smoothing_method in ['positions', 'control_matched']:
+            for sigma in [0.25, 0.5, 1.0]:
+                model_dict = {'model': model_name_smooth, 'kwargs': {'smoothing_sigma': sigma, 'smoothing_method': smoothing_method}}
+                Models.append(model_dict)
+            
 # Select the metrics to be used
 Metrics = [
-    {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'FDE_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Collision_rate_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Acceleration_indep', 'kwargs': {'include_pov': False}},
-    {'metric': 'Past_Curvature_indep', 'kwargs': {'include_pov': False}},
+    {'metric': 'ADE_indep', 'kwargs': {'include_pov': False}}
 ]
-
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 
@@ -90,3 +80,8 @@ new_experiment.run()
 
 # Load results
 Results = new_experiment.load_results()
+
+import numpy as np
+np.set_printoptions(precision=3, suppress=True)
+print(np.squeeze(Results))
+np.save('Results_RounD_Tpp_base.npy', np.squeeze(Results))

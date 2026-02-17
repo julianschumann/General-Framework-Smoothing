@@ -755,39 +755,45 @@ class trajectron_salzmann_smooth(model_template):
             # Apply smoothing (to pred agents that are not the pov agent)
             POV_Agent = (np.array(self.data_set.Agents) == 'ego')[Agent_id]
             Smoothed_agents = Pred_agents & ~POV_Agent
-            X = self.random_smoothing(X, Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
-            S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, num_steps)
-            
-            # Move img to device
-            if img is not None:
-                img = img.to(self.trajectron.device)
+
+            N = 20
+            Preds = []
+            for _ in range(N):
+                Xn = self.random_smoothing(X.copy(), Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
+                S, S_St, first_h, Neighbor, Neighbor_edge, img_out, node_type, center_pos, rot_angle = self.extract_data_batch(Xn, T, None, img, num_steps)
                 
-            torch.cuda.empty_cache()
-            # Run prediction pass
-            model = self.trajectron.node_models_dict[node_type]
-            self.trajectron.model_registrar.to(self.trajectron.device)
-            
-            with torch.no_grad():
-                predictions = model.predict(inputs                = S[:,0].to(self.trajectron.device),
-                                            inputs_st             = S_St[:,0].to(self.trajectron.device),
-                                            first_history_indices = first_h.to(self.trajectron.device),
-                                            neighbors             = Neighbor,
-                                            neighbors_edge_value  = Neighbor_edge,
-                                            robot                 = None,
-                                            map                   = img,
-                                            prediction_horizon    = num_steps,
-                                            num_samples           = self.num_samples_path_pred)
-            
-            Pred = predictions.detach().cpu().numpy()
+                # Move img to device
+                if img_out is not None:
+                    img_out = img_out.to(self.trajectron.device)
+                    
+                torch.cuda.empty_cache()
+                # Run prediction pass
+                model = self.trajectron.node_models_dict[node_type]
+                self.trajectron.model_registrar.to(self.trajectron.device)
                 
-            # set batchsize first
-            Pred = Pred.transpose(1,0,2,3)
-            
-            # reverse rotation
-            Pred_r = self.rotate_pos_matrix(Pred, -rot_angle)
-            
-            # reverse translation
-            Pred_t = Pred_r + center_pos
+                with torch.no_grad():
+                    predictions = model.predict(inputs                = S[:,0].to(self.trajectron.device),
+                                                inputs_st             = S_St[:,0].to(self.trajectron.device),
+                                                first_history_indices = first_h.to(self.trajectron.device),
+                                                neighbors             = Neighbor,
+                                                neighbors_edge_value  = Neighbor_edge,
+                                                robot                 = None,
+                                                map                   = img_out,
+                                                prediction_horizon    = num_steps,
+                                                num_samples           = self.num_samples_path_pred)
+                
+                Pred = predictions.detach().cpu().numpy()
+                    
+                # set batchsize first
+                Pred = Pred.transpose(1,0,2,3)
+                
+                # reverse rotation
+                Pred_r = self.rotate_pos_matrix(Pred, -rot_angle)
+                
+                # reverse translation
+                Pred_t = Pred_r + center_pos
+                Preds.append(Pred_t)
+            Pred_t = np.stack(Preds, axis = -1).mean(-1)
             
             self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
     

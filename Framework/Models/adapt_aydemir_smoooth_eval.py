@@ -22,7 +22,7 @@ def safe_atan2(y, x):
     theta[Evaluate] = torch.atan2(y[Evaluate], x[Evaluate]) # Shape (batch_size, num_agents, num_steps_in)
     return theta
 
-class adapt_aydemir_smooth(model_template):
+class adapt_aydemir_smoooth_eval(model_template):
     '''
     This is the implementation of the joint prediction model ADAPT. 
     The code was taken from https://github.com/gorkaydemir/ADAPT/tree/main, and
@@ -52,17 +52,17 @@ class adapt_aydemir_smooth(model_template):
         self.define_default_kwargs()
 
         smooth_dict = {
-            'all': 'ta_',
-            'positions': 'tp_',
-            'position_matched': 'tpm',
-            'control': 'tc_',
-            'control_matched': 'tcm'
+            'all': 'ea_',
+            'positions': 'ep_',
+            'position_matched': 'epm',
+            'control': 'ec_',
+            'control_matched': 'ecm'
         }
         smooth_sigma = str(int(self.model_kwargs['smoothing_sigma'] * 50))[-2:]
         smooth_method = smooth_dict[self.model_kwargs['smoothing_method']]
         kwargs_str = '_' + smooth_method + smooth_sigma
         seed_str = str(self.model_kwargs['seed'])
-        model_str = 'ADAPT' + kwargs_str + '_seed' + seed_str
+        model_str = 'ADAPT2' + kwargs_str + '_seed' + seed_str
 
         names = {'print': model_str,
                 'file': model_str,
@@ -534,7 +534,31 @@ class adapt_aydemir_smooth(model_template):
         iter_num = int(self.data_set.Pred_agents_pred[self.splitter.Train_index].sum() /self.cfg['batch_size'] * 0.9) # int(self.Pred_agents.sum()/self.cfg['batch_size']) #100000
 
         self.weights_saved = []
+        # Check if normal trained model is available
+        current_file_name_start = self.get_name()['file'][:12]
+        model_file_normal = self.model_file.replace(current_file_name_start, 'ADAPT')
+        if os.path.exists(model_file_normal):
 
+            # Load normal model
+
+            self.model = ADAPT(self.cfg)
+
+            if self.cfg['use_checkpoint']:
+                checkpoint_path = model_file_normal[:-4] + os.sep + 'checkpoint.pt'
+                assert os.path.exists(checkpoint_path)
+                checkpoint = torch.load(checkpoint_path)
+                self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+                optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg['learning_rate'])
+                total_cycle = self.cfg['epoch'] * iter_num # TODO add when total num of batches known
+                scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(total_cycle * 0.7), int(total_cycle * 0.9)], gamma=0.15)
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                scheduler.load_state_dict(checkpoint["scheduler"])
+
+            self.model.to(self.device)
+            # Save as the new model
+            save_model(self.cfg, self.cfg['epoch'] - 1, self.model, optimizer, scheduler)
+            return
+        # If not, train a new model
         # dist.init_process_group("nccl", rank=0, world_size=0)
         # Allow fine-tuning of loaded model
         if not hasattr(self, 'model'):
@@ -569,13 +593,9 @@ class adapt_aydemir_smooth(model_template):
                 print('', flush = True)
                 print(epoch_string + ' - Batch {}'.format(batch), flush = True)
 
-                X, Y, _, _, _, _, graph, Pred_agents, _, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data(
-                    'train', self.cfg['batch_size'], val_split_size = 0.1)
-                                
-                # Apply smoothing (to pred agents that are not the pov agent)
-                POV_Agent = (np.array(self.data_set.Agents) == 'ego')[Agent_id]
-                Smoothed_agents = Pred_agents & ~POV_Agent
-                X = self.random_smoothing(X, Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
+                X, Y, _, _, _, _, graph, Pred_agents, _, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data('train', self.cfg['batch_size'], 
+                                                                                        val_split_size = 0.1)
+                
                 batch_data = self.extract_data(X=X, Y=Y, graph=graph, Pred_agents=Pred_agents, Sample_id=Sample_id, Agent_id=Agent_id)
 
                 if len(batch_data) >= 2*self.cfg['batch_size']:
@@ -675,8 +695,7 @@ class adapt_aydemir_smooth(model_template):
                 # Apply smoothing (to pred agents that are not the pov agent)
                 POV_Agent = (np.array(self.data_set.Agents) == 'ego')[Agent_id]
                 Smoothed_agents = Pred_agents & ~POV_Agent
-
-                N = 20
+                N = 20 # NUmber of smoothing attempts 
                 Preds = []
                 for _ in range(N):
                     Xn = self.random_smoothing(X.copy(), Smoothed_agents, self.model_kwargs['smoothing_method'], self.model_kwargs['smoothing_sigma'])
@@ -725,8 +744,10 @@ class adapt_aydemir_smooth(model_template):
 
                         Pred_exp = Pred[..., [-1],:] + last_vel * steps
                         Pred = np.concatenate([Pred, Pred_exp], axis=-2)
+                    
                     Preds.append(Pred)
                 Pred = np.stack(Preds, axis=-1).mean(axis=-1)
+
                 # save predictions
                 self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
 
