@@ -1,5 +1,5 @@
 # Randomized Smoothing as a defense against adversarial attacks.
-This repository contains the code necessary to reproduce the results reported in the underlying paper. It uses the [STEP framework](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main) for the evaluation of trajectory prediction models.
+This repository contains the code necessary to reproduce the results reported in the underlying [paper](https://arxiv.org/abs/2603.10821). It uses the [STEP framework](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main) for the evaluation of trajectory prediction models.
 
 For this, the following steps need to be executed.
 
